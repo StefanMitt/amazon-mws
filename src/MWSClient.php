@@ -145,7 +145,7 @@ class MWSClient{
         return $array;
 
     }
-    
+
         /**
      * Returns the current competitive price of a product, based on SKU.
      * @param array [$sku_array = []]
@@ -377,18 +377,25 @@ class MWSClient{
      * @param array $states, an array containing orders states you want to filter on
      * @param string $FulfillmentChannel
      * @param object DateTime $till, end of time frame
+     * @param boolean $byCreated true = return orders by created time frame, false = return orders by update time frame
      * @return array
      */
     public function ListOrders(DateTime $from, $allMarketplaces = false, $states = [
         'Unshipped', 'PartiallyShipped'
-    ], $FulfillmentChannels = 'MFN', DateTime $till = null)
+    ], $FulfillmentChannels = 'MFN', DateTime $till = null, $byCreated = true)
     {
+        if ($byCreated) {
+            $queryParameters = ['after' => 'CreatedAfter', 'before' => 'CreatedBefore'];
+        } else {
+            $queryParameters = ['after' => 'LastUpdatedAfter', 'before' => 'LastUpdatedBefore'];
+        }
+
         $query = [
-            'CreatedAfter' => gmdate(self::DATE_FORMAT, $from->getTimestamp())
+            $queryParameters['after'] => gmdate(self::DATE_FORMAT, $from->getTimestamp())
         ];
 
         if ($till !== null) {
-          $query['CreatedBefore'] = gmdate(self::DATE_FORMAT, $till->getTimestamp());
+            $queryParameters['before'] = gmdate(self::DATE_FORMAT, $till->getTimestamp());
         }
 
         $counter = 1;
@@ -423,15 +430,15 @@ class MWSClient{
                 $data['NextToken'] = $response['ListOrdersResult']['NextToken'];
                 return $data;
             }
-        
+
             $response = $response['ListOrdersResult']['Orders']['Order'];
-        
+
             if (array_keys($response) !== range(0, count($response) - 1)) {
                 return [$response];
             }
-        
+
             return $response;
-        
+
         } else {
             return [];
         }
@@ -656,6 +663,9 @@ class MWSClient{
                         }
 			if (isset($product['Relationships']['VariationChild'])) {
 		            $array['Parentage'] = 'parent';
+                foreach ($product['Relationships']['VariationChild'] as $key => $value) {
+                    $array['children'][$key] = $value;
+                  }
 	                }
                         if (isset($product['SalesRankings']['SalesRank'])) {
                             $array['SalesRank'] = $product['SalesRankings']['SalesRank'];
@@ -995,7 +1005,7 @@ class MWSClient{
         }
 
 	$purgeAndReplace = isset($options['PurgeAndReplace']) ? $options['PurgeAndReplace'] : false;
-	    
+
         $query = [
             'FeedType' => $FeedType,
             'PurgeAndReplace' => ($purgeAndReplace ? 'true' : 'false'),
@@ -1132,7 +1142,7 @@ class MWSClient{
         return false;
 
     }
-    
+
     /**
 	 * Get a list's inventory for Amazon's fulfillment
 	 *
@@ -1142,40 +1152,40 @@ class MWSClient{
 	 * @throws Exception
 	 */
     public function ListInventorySupply($sku_array = []){
-	
+
 	    if (count($sku_array) > 50) {
 		    throw new Exception('Maximum amount of SKU\'s for this call is 50');
 	    }
-	
+
 	    $counter = 1;
 	    $query = [
 		    'MarketplaceId' => $this->config['Marketplace_Id']
 	    ];
-	
+
 	    foreach($sku_array as $key){
 		    $query['SellerSkus.member.' . $counter] = $key;
 		    $counter++;
 	    }
-	
+
 	    $response = $this->request(
 		    'ListInventorySupply',
 		    $query
 	    );
-	
+
 	    $result = [];
 	    if (isset($response['ListInventorySupplyResult']['InventorySupplyList']['member'])) {
 		    foreach ($response['ListInventorySupplyResult']['InventorySupplyList']['member'] as $index => $ListInventorySupplyResult) {
 			    $result[$index] = $ListInventorySupplyResult;
 		    }
 	    }
-	    
+
 	    return $result;
     }
 
     /**
      * Get FBA Fees Estimation
      *
-     * @param string $idType 
+     * @param string $idType
      * @param string $id
      * @param float $price
      * @param string $currencyCode
@@ -1350,7 +1360,7 @@ class MWSClient{
             );
 
             $requestOptions['query'] = $query;
-            
+
             if($this->client === NULL) {
                 $this->client = new Client();
             }
@@ -1388,7 +1398,7 @@ class MWSClient{
             throw new Exception($message);
         }
     }
-    
+
     public function setClient(Client $client) {
         $this->client = $client;
     }
